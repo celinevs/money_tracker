@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 
@@ -25,11 +25,12 @@ class Transaction(db.Model):
     amount = db.Column(db.Float, nullable=False)
     date = db.Column(db.DateTime)
 
-    def __init__(self, name, description, category, amount):
+    def __init__(self, name, date, description, category, amount):
         self.name = name
         self.description = description
         self.category = category
         self.amount = amount
+        self.date = date
 
 
 @app.route('/')
@@ -39,6 +40,29 @@ def index():
 @app.route('/workspace', methods=['GET'])
 def workspace():
     return jsonify({"msg": "berhasil kehubung yey"})
+
+@app.route('/form', methods=['GET', 'POST'])
+def form():
+    response_object = {'status':'success'}
+    if request.method == "POST":
+     post_data = request.get_json()
+     name   = post_data.get('name'),
+     date  = post_data.get('date')
+     category = post_data.get('category')
+     amount = post_data.get('amount')
+     desc = post_data.get('desc')
+     new_transaction = Transaction(
+        name=name,
+        description=desc,
+        category=category,
+        amount=amount,
+        date=date)
+     # Add to the session and commit to the database
+     db.session.add(new_transaction)
+     db.session.commit()
+     response_object['message'] ='Data added!'
+    return jsonify(response_object)
+
 
 if __name__ == '__main__':
     with app.app_context():
