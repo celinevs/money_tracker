@@ -10,7 +10,7 @@ const router = createRouter({
     component:workspace,
   },
   {
-    path:'/form',
+    path:'/form/:category',
     name:'form',
     component:form,
   }

@@ -31,6 +31,19 @@ class Transaction(db.Model):
         self.category = category
         self.amount = amount
         self.date = date
+    
+    def to_dict(self):
+        """Converts a Transaction object to a dictionary for JSON serialization."""
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'category': self.category,
+            'amount': self.amount,
+            'date': self.date.isoformat() if self.date else None,
+        }
+
+
 
 
 @app.route('/')
@@ -39,13 +52,21 @@ def index():
 
 @app.route('/workspace', methods=['GET'])
 def workspace():
-    return jsonify({"msg": "berhasil kehubung yey"})
+    transactions = Transaction.query.all()
+    grouped = {}
+    for transaction in transactions:
+        category = transaction.category
+        if category not in grouped:
+            grouped[category] = []
+        grouped[category].append(transaction.to_dict())
+    return jsonify(grouped)
 
 @app.route('/form', methods=['GET', 'POST'])
 def form():
     response_object = {'status':'success'}
     if request.method == "POST":
      post_data = request.get_json()
+     print("Received data:", post_data)
      name   = post_data.get('name'),
      date  = post_data.get('date')
      category = post_data.get('category')
