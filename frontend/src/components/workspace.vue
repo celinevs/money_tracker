@@ -9,8 +9,10 @@
     </div>
     <div class="filters">
       <h3>Filter Categories</h3>
-      <p><b>Start Date:</b> <input type="date" v-model="startDate"></p>
-      <p><b>End Date:</b> <input type="date" v-model="endDate"></p>
+      <div class="filter-row">
+        <p><b>Start Date:</b> <input type="date" v-model="startDate"></p>
+        <p><b>End Date:</b> <input type="date" v-model="endDate"></p>
+      </div>
       <div v-for="(transactions, category) in groupedTransactions" :key="category" class="filter-item">
         <label>
           <input 
@@ -21,7 +23,7 @@
           {{ category }}
         </label>
       </div>
-      <button @click="applyFilters">Apply</button>
+      <button @click="applyFilters" class="apply-button">Apply Filters</button>
     </div>
     <div class="board">
       <div 
@@ -32,21 +34,52 @@
       >
         <div class="column-header">
           <h2>{{ category }}</h2>
-          <button @click="addTransaction(category)">+</button>
+          <button @click="addTransaction(category)" class="add-button">+</button>
         </div>
         <div 
           v-for="(transaction, index) in transactions" 
           :key="index" 
-          class="transaction"
-          @click="viewTransaction(transaction)"
+          class="transaction-card"
+          @click="editTransaction(transaction)"
         >
-          {{ transaction.name }}
+          <div class="transaction-card-header">
+            <h4>{{ transaction.amount }} IDR</h4>
+            <p>{{ transaction.date }}</p>
+          </div>
+          <p>{{ transaction.description }}</p>
         </div>
         <p class="total">Total: {{ calculateTotal(category) }}</p>
       </div>
     </div>
+
+    <!-- Edit Form Modal -->
+    <div v-if="showEditForm" class="modal-overlay" @click="closeEditForm">
+      <div class="modal-content" @click.stop>
+        <h3>Edit Transaction</h3>
+        <form @submit.prevent="saveTransaction">
+          <label for="name">Name</label>
+          <input v-model="selectedTransaction.name" id="name" type="text" required />
+          
+          <label for="amount">Amount</label>
+          <input v-model="selectedTransaction.amount" id="amount" type="number" required />
+          
+          <label for="description">Description</label>
+          <textarea v-model="selectedTransaction.description" id="description" required></textarea>
+
+          <label for="date">Date</label>
+          <input v-model="selectedTransaction.date" id="date" type="date" required />
+
+          <div class="modal-actions">
+            <button type="submit" class="save-button">Save</button>
+            <button type="button" @click="deleteTransaction(selectedTransaction)" class="cancel-button">Delete</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
+
+
 
 <script>
 import axios from 'axios';
@@ -61,7 +94,9 @@ export default {
       selectedCategories: [],
       filteredTransactions: {},
       startDate: '',
-      endDate: ''
+      endDate: '',
+      showEditForm: false,
+      selectedTransaction: {},
     };
   },
   mounted() {
@@ -78,8 +113,30 @@ export default {
         console.error('Error fetching transactions:', error);
       }
     },
-    viewTransaction(transaction) {
-      alert(`Transaction Details:\nName: ${transaction.name}\nAmount: ${transaction.amount}\nDescription: ${transaction.description}\nDate: ${transaction.date}`);
+    editTransaction(transaction) {
+      this.selectedTransaction = { ...transaction }; // Clone the transaction to avoid direct mutation
+      this.showEditForm = true;
+    },
+    saveTransaction() {
+      // Update the transaction in the database
+      axios.put(`http://127.0.0.1:5000/workspace/${this.selectedTransaction.id}`, this.selectedTransaction)
+        .then(response => {
+          this.fetchTransactions(); // Refresh data
+          this.closeEditForm();
+        })
+        .catch(error => {
+          console.error('Error updating transaction:', error);
+        });
+    },
+    deleteTransaction(transaction) {
+      // Delete the transaction from the database
+      axios.delete(`http://127.0.0.1:5000/workspace/${transaction.id}`)
+        .then(response => {
+          this.fetchTransactions(); // Refresh data
+        })
+        .catch(error => {
+          console.error('Error deleting transaction:', error);
+        });
     },
     addTransaction(category) {
       this.$router.push({ name: 'form', params: { category } });
@@ -119,30 +176,84 @@ export default {
         return filtered;
       }, {});
     },
+    closeEditForm() {
+      this.showEditForm = false;
+      this.selectedTransaction = {};
+    },
   },
 };
 </script>
 
 <style scoped>
+/* General Layout */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f7f7f7;
+  margin: 0;
+  padding: 0;
+}
+
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background-color: #007bff;
+  color: white;
+  padding: 20px;
+  border-radius: 5px 5px 0 0;
+}
+
+h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+button {
+  padding: 8px 16px;
+  border: none;
+  background-color: #007bff;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s ease;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+.controls, .filters {
+  padding: 20px;
+  background-color: white;
+  border-radius: 5px;
   margin-bottom: 20px;
 }
 
-.controls {
-  margin-bottom: 20px;
+.filters h3 {
+  font-size: 20px;
 }
 
-.filters {
-  margin-bottom: 20px;
+.filter-row {
+  display: flex;
+  gap: 15px;
 }
 
 .filter-item {
-  margin: 5px 0;
+  margin: 10px 0;
 }
 
+.apply-button {
+  background-color: #28a745;
+  padding: 10px 20px;
+  font-size: 16px;
+}
+
+.apply-button:hover {
+  background-color: #218838;
+}
+
+/* Board Layout */
 .board {
   display: flex;
   gap: 20px;
@@ -150,39 +261,143 @@ export default {
 }
 
 .column {
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  width: 200px;
-  padding: 10px;
-  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 15px;
+  background-color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  width: 220px;
+  margin-bottom: 20px;
+  transition: box-shadow 0.3s ease;
+}
+
+.column:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .column-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
 }
 
-.transaction {
-  background: #fff;
-  padding: 5px;
-  margin: 5px 0;
-  border: 1px solid #ddd;
+.column-header h2 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.add-button {
+  background-color: #f39c12;
+  border-radius: 50%;
+  width: 35px;
+  height: 35px;
+  font-size: 20px;
+  padding: 0;
+  color: white;
+  text-align: center;
+  line-height: 35px;
   cursor: pointer;
-  transition: background 0.3s;
 }
 
-.transaction:hover {
-  background: #f0f0f0;
+.add-button:hover {
+  background-color: #e67e22;
+}
+
+.transaction-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin: 15px 0;
+  padding: 15px;
+  cursor: pointer;
+  transition: transform 0.3s ease, background-color 0.3s ease;
+}
+
+.transaction-card:hover {
+  background: #f9f9f9;
+  transform: scale(1.05);
+}
+
+.transaction-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.transaction-card-header h4 {
+  margin: 0;
+  font-size: 18px;
+  color: #e74c3c;
+}
+
+.transaction-card-header p {
+  margin: 0;
+  font-size: 12px;
+  color: #888;
 }
 
 .total {
-  margin-top: 10px;
   font-weight: bold;
+  margin-top: 20px;
 }
 
 .overBudget {
-  background-color: #fdd;
+  background-color: #f8d7da;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background: #fff;
+  padding: 25px;
+  border-radius: 8px;
+  width: 400px;
+  max-width: 100%;
+}
+
+input, textarea {
+  width: 100%;
+  padding: 12px;
+  margin: 8px 0;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: space-between;
+}
+
+.save-button {
+  background-color: #28a745;
+  width: 48%;
+}
+
+.save-button:hover {
+  background-color: #218838;
+}
+
+.cancel-button {
+  background-color: #dc3545;
+  width: 48%;
+}
+
+.cancel-button:hover {
+  background-color: #c82333;
 }
 </style>

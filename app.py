@@ -23,7 +23,7 @@ class Transaction(db.Model):
     description = db.Column(db.String(255), nullable=True)
     category = db.Column(db.String(50), nullable=False)
     amount = db.Column(db.Float, nullable=False)
-    date = db.Column(db.Date)
+    date = db.Column(db.DateTime)
 
     def __init__(self, name, date, description, category, amount):
         self.name = name
@@ -87,7 +87,34 @@ def form():
      db.session.commit()
      response_object['message'] ='Data added!'
     return jsonify(response_object)
+# Update or Delete a Transaction
+@app.route('/workspace/<int:transaction_id>', methods=['PUT', 'DELETE'])
+def modify_transaction(transaction_id):
+    response_object = {'status': 'success'}
+    transaction = Transaction.query.get(transaction_id)
 
+    if not transaction:
+        response_object['status'] = 'fail'
+        response_object['message'] = 'Transaction not found'
+        return jsonify(response_object), 404
+
+    if request.method == 'PUT':
+        put_data = request.get_json()
+        transaction.name = put_data.get('name', transaction.name)
+        transaction.date = put_data.get('date', transaction.date)
+        transaction.category = put_data.get('category', transaction.category)
+        transaction.amount = put_data.get('amount', transaction.amount)
+        transaction.description = put_data.get('description', transaction.description)
+
+        db.session.commit()
+        response_object['message'] = 'Transaction updated!'
+
+    elif request.method == 'DELETE':
+        db.session.delete(transaction)
+        db.session.commit()
+        response_object['message'] = 'Transaction deleted!'
+
+    return jsonify(response_object)
 
 if __name__ == '__main__':
     with app.app_context():
