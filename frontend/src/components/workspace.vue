@@ -5,13 +5,27 @@
       <button @click="logout">Logout</button>
     </div>
     <div class="controls">
-      <p><b>Start Date:</b> <input type="date"></p>
-      <p><b>End Date:</b> <input type="date"></p>
       <p><b>Total Budget:</b> <span>{{ totalBudget }}</span></p>
+    </div>
+    <div class="filters">
+      <h3>Filter Categories</h3>
+      <p><b>Start Date:</b> <input type="date" v-model="startDate"></p>
+      <p><b>End Date:</b> <input type="date" v-model="endDate"></p>
+      <div v-for="(transactions, category) in groupedTransactions" :key="category" class="filter-item">
+        <label>
+          <input 
+            type="checkbox" 
+            v-model="selectedCategories" 
+            :value="category"
+          />
+          {{ category }}
+        </label>
+      </div>
+      <button @click="applyFilters">Apply</button>
     </div>
     <div class="board">
       <div 
-        v-for="(transactions, category) in groupedTransactions" 
+        v-for="(transactions, category) in filteredTransactions" 
         :key="category" 
         class="column"
         :class="{ overBudget: calculateTotal(category) > budgetLimit }"
@@ -44,6 +58,10 @@ export default {
       groupedTransactions: {},
       budgetLimit: 500000, // Example budget limit for each category
       totalBudget: 0,
+      selectedCategories: [],
+      filteredTransactions: {},
+      startDate: '',
+      endDate: ''
     };
   },
   mounted() {
@@ -54,6 +72,7 @@ export default {
       try {
         const res = await axios.get('http://127.0.0.1:5000/workspace');
         this.groupedTransactions = res.data;
+        this.filteredTransactions = this.groupedTransactions;
         this.calculateTotalBudget();
       } catch (error) {
         console.error('Error fetching transactions:', error);
@@ -63,7 +82,7 @@ export default {
       alert(`Transaction Details:\nName: ${transaction.name}\nAmount: ${transaction.amount}\nDescription: ${transaction.description}\nDate: ${transaction.date}`);
     },
     addTransaction(category) {
-      this.$router.push({ name: 'form' ,params: { category }});
+      this.$router.push({ name: 'form', params: { category } });
     },
     logout() {
       alert('Logout clicked');
@@ -76,6 +95,29 @@ export default {
       this.totalBudget = Object.keys(this.groupedTransactions).reduce((total, category) => {
         return total + this.calculateTotal(category);
       }, 0);
+    },
+    applyFilters() {
+      const filteredByCategory = this.selectedCategories.length === 0
+        ? this.groupedTransactions
+        : Object.keys(this.groupedTransactions)
+            .filter(category => this.selectedCategories.includes(category))
+            .reduce((filtered, category) => {
+              filtered[category] = this.groupedTransactions[category];
+              return filtered;
+            }, {});
+
+      this.filteredTransactions = Object.keys(filteredByCategory).reduce((filtered, category) => {
+        const transactions = filteredByCategory[category].filter(transaction => {
+          const transactionDate = new Date(transaction.date);
+          const start = this.startDate ? new Date(this.startDate) : null;
+          const end = this.endDate ? new Date(this.endDate) : null;
+          return (!start || transactionDate >= start) && (!end || transactionDate <= end);
+        });
+        if (transactions.length > 0) {
+          filtered[category] = transactions;
+        }
+        return filtered;
+      }, {});
     },
   },
 };
@@ -91,6 +133,14 @@ export default {
 
 .controls {
   margin-bottom: 20px;
+}
+
+.filters {
+  margin-bottom: 20px;
+}
+
+.filter-item {
+  margin: 5px 0;
 }
 
 .board {

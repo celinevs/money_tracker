@@ -23,7 +23,7 @@ class Transaction(db.Model):
     description = db.Column(db.String(255), nullable=True)
     category = db.Column(db.String(50), nullable=False)
     amount = db.Column(db.Float, nullable=False)
-    date = db.Column(db.DateTime)
+    date = db.Column(db.Date)
 
     def __init__(self, name, date, description, category, amount):
         self.name = name
@@ -53,7 +53,11 @@ def index():
 @app.route('/workspace', methods=['GET'])
 def workspace():
     transactions = Transaction.query.all()
-    grouped = {}
+    grouped = {'A': [],
+               'B': [],
+               'C': [],
+               'D': [],
+               'E':[]}
     for transaction in transactions:
         category = transaction.category
         if category not in grouped:
