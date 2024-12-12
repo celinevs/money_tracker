@@ -142,7 +142,7 @@ export default {
       this.$router.push({ name: 'form', params: { category } });
     },
     logout() {
-      alert('Logout clicked');
+      this.$router.push({ name: 'login'});
     },
     calculateTotal(category) {
       const transactions = this.groupedTransactions[category] || [];
