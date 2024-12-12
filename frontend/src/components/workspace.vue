@@ -13,13 +13,13 @@
         <p><b>Start Date:</b> <input type="date" v-model="startDate"></p>
         <p><b>End Date:</b> <input type="date" v-model="endDate"></p>
       </div>
-      <div v-for="(transactions, category) in groupedTransactions" :key="category" class="filter-item">
-        <label>
-          <input 
-            type="checkbox" 
-            v-model="selectedCategories" 
-            :value="category"
-          />
+      <div class="filter-categories">
+        <label v-for="category in ['A', 'B', 'C', 'D', 'E']" :key="category">
+        <input 
+          type="checkbox" 
+          v-model="selectedCategories" 
+          :value="category"
+        />
           {{ category }}
         </label>
       </div>
@@ -34,7 +34,7 @@
       >
         <div class="column-header">
           <h2>{{ category }}</h2>
-          <button @click="addTransaction(category)" class="add-button">+</button>
+          <button @click="openAddForm(category)" class="add-button">+</button>
         </div>
         <div 
           v-for="(transaction, index) in transactions" 
@@ -76,10 +76,33 @@
         </form>
       </div>
     </div>
+
+    <!-- Add Form Modal -->
+    <div v-if="showAddForm" class="modal-overlay" @click="closeAddForm">
+      <div class="modal-content" @click.stop>
+        <h3>Add Transaction</h3>
+        <form @submit.prevent="saveNewTransaction">
+          <label for="newName">Name</label>
+          <input v-model="newTransaction.name" id="newName" type="text" required />
+          
+          <label for="newAmount">Amount</label>
+          <input v-model="newTransaction.amount" id="newAmount" type="number" required />
+          
+          <label for="newDescription">Description</label>
+          <textarea v-model="newTransaction.description" id="newDescription" required></textarea>
+
+          <label for="newDate">Date</label>
+          <input v-model="newTransaction.date" id="newDate" type="date" required />
+
+          <div class="modal-actions">
+            <button type="submit" class="save-button">Add</button>
+            <button type="button" @click="closeAddForm" class="cancel-button">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
-
-
 
 <script>
 import axios from 'axios';
@@ -96,7 +119,15 @@ export default {
       startDate: '',
       endDate: '',
       showEditForm: false,
+      showAddForm: false,
       selectedTransaction: {},
+      newTransaction: {
+        name: '',
+        amount: '',
+        description: '',
+        date: '',
+        category: '',
+      },
     };
   },
   mounted() {
@@ -118,9 +149,8 @@ export default {
       this.showEditForm = true;
     },
     saveTransaction() {
-      // Update the transaction in the database
       axios.put(`http://127.0.0.1:5000/workspace/${this.selectedTransaction.id}`, this.selectedTransaction)
-        .then(response => {
+        .then(() => {
           this.fetchTransactions(); // Refresh data
           this.closeEditForm();
         })
@@ -129,20 +159,38 @@ export default {
         });
     },
     deleteTransaction(transaction) {
-      // Delete the transaction from the database
       axios.delete(`http://127.0.0.1:5000/workspace/${transaction.id}`)
-        .then(response => {
+        .then(() => {
           this.fetchTransactions(); // Refresh data
         })
         .catch(error => {
           console.error('Error deleting transaction:', error);
         });
     },
-    addTransaction(category) {
-      this.$router.push({ name: 'form', params: { category } });
+    openAddForm(category) {
+      this.newTransaction = { name: '', amount: '', description: '', date: '', category };
+      this.showAddForm = true;
     },
     logout() {
       this.$router.push({ name: 'login'});
+    },
+    saveNewTransaction() {
+      axios.post('http://127.0.0.1:5000/form', this.newTransaction)
+        .then(() => {
+          this.fetchTransactions(); // Refresh data
+          this.closeAddForm();
+        })
+        .catch(error => {
+          console.error('Error adding transaction:', error);
+        });
+    },
+    closeEditForm() {
+      this.showEditForm = false;
+      this.selectedTransaction = {};
+    },
+    closeAddForm() {
+      this.showAddForm = false;
+      this.newTransaction = {};
     },
     calculateTotal(category) {
       const transactions = this.groupedTransactions[category] || [];
@@ -154,32 +202,32 @@ export default {
       }, 0);
     },
     applyFilters() {
-      const filteredByCategory = this.selectedCategories.length === 0
-        ? this.groupedTransactions
-        : Object.keys(this.groupedTransactions)
-            .filter(category => this.selectedCategories.includes(category))
-            .reduce((filtered, category) => {
-              filtered[category] = this.groupedTransactions[category];
-              return filtered;
-            }, {});
+  const allCategories = ['a', 'b', 'c', 'd', 'e']; // Fixed categories list
 
-      this.filteredTransactions = Object.keys(filteredByCategory).reduce((filtered, category) => {
-        const transactions = filteredByCategory[category].filter(transaction => {
-          const transactionDate = new Date(transaction.date);
-          const start = this.startDate ? new Date(this.startDate) : null;
-          const end = this.endDate ? new Date(this.endDate) : null;
-          return (!start || transactionDate >= start) && (!end || transactionDate <= end);
-        });
-        if (transactions.length > 0) {
-          filtered[category] = transactions;
-        }
-        return filtered;
-      }, {});
-    },
-    closeEditForm() {
-      this.showEditForm = false;
-      this.selectedTransaction = {};
-    },
+  // Start by including all selected categories, even if empty
+  const filteredByCategory = this.selectedCategories.reduce((filtered, category) => {
+    filtered[category] = this.groupedTransactions[category] || []; // Include even if empty
+    return filtered;
+  }, {});
+
+  // Apply date filters if startDate or endDate are provided
+  this.filteredTransactions = Object.keys(filteredByCategory).reduce((filtered, category) => {
+    const transactions = (filteredByCategory[category] || []).filter(transaction => {
+      const transactionDate = new Date(transaction.date);
+      const start = this.startDate ? new Date(this.startDate) : null;
+      const end = this.endDate ? new Date(this.endDate) : null;
+      return (!start || transactionDate >= start) && (!end || transactionDate <= end);
+    });
+
+    // Ensure the category is included, even if no transactions match the date filter
+    filtered[category] = transactions;
+    return filtered;
+  }, {});
+
+  // Log for debugging
+  console.log('Filtered Transactions:', this.filteredTransactions);
+},
+
   },
 };
 </script>
@@ -187,91 +235,113 @@ export default {
 <style scoped>
 /* General Layout */
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #f7f7f7;
+  font-family: 'Poppins', Arial, sans-serif;
+  background-color: #fffbf0;
   margin: 0;
   padding: 0;
+  color: #333;
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #007bff;
+  background-color: #ff7eb9;
   color: white;
   padding: 20px;
-  border-radius: 5px 5px 0 0;
+  border-radius: 15px 15px 0 0;
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
 }
 
 h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: 32px;
 }
 
 button {
-  padding: 8px 16px;
+  padding: 10px 18px;
   border: none;
-  background-color: #007bff;
+  background-color: #ffb677;
   color: white;
-  border-radius: 5px;
+  border-radius: 25px;
   cursor: pointer;
   font-size: 16px;
-  transition: background-color 0.3s ease;
+  font-weight: bold;
+  transition: transform 0.2s ease, background-color 0.3s ease;
 }
 
 button:hover {
-  background-color: #0056b3;
+  background-color: #ff6363;
+  transform: translateY(-3px);
 }
 
 .controls, .filters {
   padding: 20px;
-  background-color: white;
-  border-radius: 5px;
+  background-color: #ffffff;
+  border-radius: 15px;
   margin-bottom: 20px;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
 }
 
 .filters h3 {
-  font-size: 20px;
+  font-size: 22px;
+  color: #ff7eb9;
 }
 
 .filter-row {
   display: flex;
-  gap: 15px;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 
 .filter-item {
   margin: 10px 0;
 }
 
-.apply-button {
-  background-color: #28a745;
-  padding: 10px 20px;
+.filter-categories {
+  display: flex;
+  gap: 15px; /* Menambahkan jarak antar checkbox dan label */
   font-size: 16px;
 }
 
+.filter-categories label {
+  display: flex;
+  align-items: center;
+}
+
+.filter-categories input {
+  margin-right: 8px; /* Memberikan jarak antara checkbox dan label */
+}
+.apply-button {
+  background-color: #6cdbeb;
+  padding: 12px 24px;
+  font-size: 18px;
+  border-radius: 20px;
+}
+
 .apply-button:hover {
-  background-color: #218838;
+  background-color: #38a3a5;
 }
 
 /* Board Layout */
 .board {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
   gap: 20px;
-  flex-wrap: wrap;
+  padding: 20px;
 }
 
 .column {
-  border-radius: 8px;
-  padding: 15px;
-  background-color: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  width: 220px;
-  margin-bottom: 20px;
-  transition: box-shadow 0.3s ease;
+  border-radius: 12px;
+  padding: 20px;
+  background-color: #ffeedb;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .column:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+  transform: translateY(-5px);
 }
 
 .column-header {
@@ -282,31 +352,32 @@ button:hover {
 }
 
 .column-header h2 {
-  font-size: 20px;
+  font-size: 22px;
   margin: 0;
+  color: #ff7eb9;
 }
 
 .add-button {
-  background-color: #f39c12;
+  background-color: #ffd97d;
   border-radius: 50%;
-  width: 35px;
-  height: 35px;
-  font-size: 20px;
+  width: 40px;
+  height: 40px;
+  font-size: 24px;
   padding: 0;
   color: white;
   text-align: center;
-  line-height: 35px;
+  line-height: 40px;
   cursor: pointer;
 }
 
 .add-button:hover {
-  background-color: #e67e22;
+  background-color: #f9a826;
 }
 
 .transaction-card {
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  background: #ffffff;
+  border: 2px solid #ffd97d;
+  border-radius: 12px;
   margin: 15px 0;
   padding: 15px;
   cursor: pointer;
@@ -314,7 +385,7 @@ button:hover {
 }
 
 .transaction-card:hover {
-  background: #f9f9f9;
+  background: #fff3e0;
   transform: scale(1.05);
 }
 
@@ -327,23 +398,26 @@ button:hover {
 .transaction-card-header h4 {
   margin: 0;
   font-size: 18px;
-  color: #e74c3c;
+  color: #ff6363;
 }
 
 .transaction-card-header p {
   margin: 0;
   font-size: 12px;
-  color: #888;
+  color: #999;
 }
 
 .total {
   font-weight: bold;
   margin-top: 20px;
+  color: #ff7eb9;
 }
 
 .overBudget {
-  background-color: #f8d7da;
+  background-color: #ffe6e6;
 }
+
+
 
 .modal-overlay {
   position: fixed;
@@ -351,26 +425,49 @@ button:hover {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   justify-content: center;
   align-items: center;
 }
 
 .modal-content {
-  background: #fff;
+  background: #fffbf0; /* Match workspace background */
   padding: 25px;
-  border-radius: 8px;
-  width: 400px;
+  border-radius: 15px;
+  width: 420px;
   max-width: 100%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  color: #333; /* Text color matching the workspace */
+}
+
+.modal-content h3 {
+  font-size: 24px;
+  color: #ff7eb9; /* Match primary accent color */
+  margin-bottom: 15px;
+}
+
+.modal-content label {
+  font-weight: bold;
+  margin-bottom: 5px;
+  display: block;
 }
 
 input, textarea {
-  width: 100%;
+  width: 90%;
   padding: 12px;
-  margin: 8px 0;
-  border: 1px solid #ddd;
-  border-radius: 5px;
+  margin: 10px 0;
+  border: 2px solid #ffd97d; /* Match transaction card borders */
+  border-radius: 12px; /* Rounded corners consistent with cards */
+  background: #ffffff;
+  font-size: 16px;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+input:focus, textarea:focus {
+  outline: none;
+  border-color: #ff7eb9; /* Highlight matching primary color */
+  box-shadow: 0 0 5px #ff7eb9;
 }
 
 textarea {
@@ -381,23 +478,45 @@ textarea {
 .modal-actions {
   display: flex;
   justify-content: space-between;
+  gap: 10px;
 }
 
 .save-button {
-  background-color: #28a745;
+  background-color: #6cdbeb; /* Match "Apply Filters" button color */
   width: 48%;
+  color: #fff;
+  font-weight: bold;
+  border-radius: 20px; /* Rounded consistent with workspace */
+  padding: 12px;
+  font-size: 16px;
+  transition: transform 0.2s ease, background-color 0.3s ease;
 }
 
 .save-button:hover {
-  background-color: #218838;
+  background-color: #38a3a5;
+  transform: translateY(-3px);
 }
 
 .cancel-button {
-  background-color: #dc3545;
+  background-color: #ff6363; /* Match "Cancel" button style */
   width: 48%;
+  color: white;
+  font-weight: bold;
+  border-radius: 20px;
+  padding: 12px;
+  font-size: 16px;
+  transition: transform 0.2s ease, background-color 0.3s ease;
 }
 
 .cancel-button:hover {
-  background-color: #c82333;
+  background-color: #e63946;
+  transform: translateY(-3px);
 }
+
+button {
+  cursor: pointer;
+}
+
+
+
 </style>
