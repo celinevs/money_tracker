@@ -9,7 +9,11 @@ CORS(app, resources={r'/*': {'origins': '*'}})
 
 # app.config['CORS_HEADERS'] = 'Content-Type'
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root@localhost:3308/money_tracker'
+# #Celine
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root@localhost:3308/money_tracker'
+
+#Joanna
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root@localhost:3306/money_tracker'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -115,6 +119,17 @@ def modify_transaction(transaction_id):
         response_object['message'] = 'Transaction deleted!'
 
     return jsonify(response_object)
+
+@app.route('/login', methods=['POST']) 
+def login(): 
+    data = request.get_json() 
+    username = data.get('username') 
+    password = data.get('password') 
+    # Hardcoded credentials 
+    if username == 'admin' and password == '123': 
+        return jsonify({"message": "Login successful"}) 
+    else: 
+        return jsonify({"message": "Invalid credentials"}), 401
 
 if __name__ == '__main__':
     with app.app_context():
