@@ -79,7 +79,7 @@ def form():
      date  = post_data.get('date')
      category = post_data.get('category')
      amount = post_data.get('amount')
-     desc = post_data.get('desc')
+     desc = post_data.get('description')
      new_transaction = Transaction(
         name=name,
         description=desc,
