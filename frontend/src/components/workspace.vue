@@ -5,7 +5,8 @@
       <button @click="logout">Logout</button>
     </div>
     <div class="controls">
-      <p><b>Total Budget:</b> <span>{{ totalBudget }}</span></p>
+      <p><b>Total Spent:</b> <span>{{ totalBudget }}</span></p>
+      <p><b>Budget limit:</b> <span>{{ budgetLimit }}</span></p>
     </div>
     <div class="filters">
       <h3>Filter Categories</h3>
