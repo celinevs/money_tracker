@@ -10,7 +10,7 @@ CORS(app, resources={r'/*': {'origins': '*'}})
 # app.config['CORS_HEADERS'] = 'Content-Type'
 
 # #Celine
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root@localhost:3308/money_tracker'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://user:password@db:3306/money_tracker'
 
 #Joanna
 # app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root@localhost:3306/money_tracker'
